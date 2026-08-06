@@ -82,3 +82,7 @@ If requests fail with `CERTIFICATE_VERIFY_FAILED`, update dependencies first so 
 ### HTTP 405 troubleshooting
 
 The client sends POST requests and now tries both the captured `GRAPHQL_ENDPOINT` and `GRAPHQL_FALLBACK_ENDPOINT`. If Kaspi changes the internal route again and you still receive HTTP 405, open Kaspi Merchant DevTools, copy the current `getOrderDetails` GraphQL request URL, and set `GRAPHQL_ENDPOINT` in `.env` to that exact URL.
+
+### Important: page URLs are not API URLs
+
+Use `https://kaspi.kz/mc/#/` and links like `https://kaspi.kz/mc/#/orders/1023997750` only in the browser. Do not put those URLs into `GRAPHQL_ENDPOINT`: URL fragments after `#` are client-side routes and cannot receive POST requests. The parser automatically falls back to the API host `https://mc.shop.kaspi.kz/mc/facade/graphql?opName=getOrderDetails` if a Kaspi page URL is accidentally configured as the GraphQL endpoint.

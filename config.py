@@ -3,23 +3,36 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
+DEFAULT_GRAPHQL_ENDPOINT = "https://mc.shop.kaspi.kz/mc/facade/graphql?opName=getOrderDetails"
+DEFAULT_GRAPHQL_FALLBACK_ENDPOINT = "https://mc.shop.kaspi.kz/mc/facade/graphql"
+DEFAULT_AUTH_URL = "https://kaspi.kz/mc/#/"
+
 
 def _graphql_endpoints() -> tuple[str, ...]:
-    primary = os.getenv(
-        "GRAPHQL_ENDPOINT",
-        "https://mc.shop.kaspi.kz/mc/facade/graphql?opName=getOrderDetails",
-    )
-    fallback = os.getenv(
-        "GRAPHQL_FALLBACK_ENDPOINT", "https://mc.shop.kaspi.kz/mc/facade/graphql"
-    )
-    endpoints = []
-    for endpoint in (primary, fallback):
+    configured = [
+        os.getenv("GRAPHQL_ENDPOINT", DEFAULT_GRAPHQL_ENDPOINT),
+        os.getenv("GRAPHQL_FALLBACK_ENDPOINT", DEFAULT_GRAPHQL_FALLBACK_ENDPOINT),
+    ]
+    endpoints: list[str] = []
+    for raw_endpoint in configured:
+        endpoint = _normalize_graphql_endpoint(raw_endpoint)
         if endpoint and endpoint not in endpoints:
             endpoints.append(endpoint)
     return tuple(endpoints)
+
+
+def _normalize_graphql_endpoint(raw_endpoint: str | None) -> str:
+    if not raw_endpoint:
+        return DEFAULT_GRAPHQL_ENDPOINT
+    endpoint = raw_endpoint.strip()
+    parsed = urlparse(endpoint)
+    if parsed.fragment or parsed.netloc == "kaspi.kz":
+        return DEFAULT_GRAPHQL_ENDPOINT
+    return endpoint
 
 
 def _bool(value: str) -> bool:
@@ -43,8 +56,8 @@ class Settings:
     graphql_endpoints: tuple[str, ...]
     user_agent: str
     kaspi_origin: str = "https://kaspi.kz"
-    kaspi_referer: str = "https://kaspi.kz/"
-    auth_url: str = "https://kaspi.kz/mc"
+    kaspi_referer: str = "https://kaspi.kz/mc/#/"
+    auth_url: str = DEFAULT_AUTH_URL
 
     @classmethod
     def from_env(cls) -> "Settings":
