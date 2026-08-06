@@ -75,7 +75,9 @@ class ExcelService:
         first_value = str(frame.iloc[0, 0]).strip() if not pd.isna(frame.iloc[0, 0]) else ""
         if self._normalize_column(first_value) in self.SUPPORTED_COLUMN_NAMES:
             frame.drop(index=frame.index[0], inplace=True)
-        self.logger.warning("Using first column as order codes because no Excel header row was detected")
+        self.logger.warning(
+            "Using first column as order codes because no Excel header row was detected"
+        )
         return frame.columns[0]
 
     def _looks_like_order_code(self, value: Any) -> bool:

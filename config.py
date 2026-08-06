@@ -1,10 +1,25 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
-import os
+
+
+def _graphql_endpoints() -> tuple[str, ...]:
+    primary = os.getenv(
+        "GRAPHQL_ENDPOINT",
+        "https://mc.shop.kaspi.kz/mc/facade/graphql?opName=getOrderDetails",
+    )
+    fallback = os.getenv(
+        "GRAPHQL_FALLBACK_ENDPOINT", "https://mc.shop.kaspi.kz/mc/facade/graphql"
+    )
+    endpoints = []
+    for endpoint in (primary, fallback):
+        if endpoint and endpoint not in endpoints:
+            endpoints.append(endpoint)
+    return tuple(endpoints)
 
 
 def _bool(value: str) -> bool:
@@ -25,7 +40,8 @@ class Settings:
     log_file: Path
     verify_ssl: bool
     ssl_ca_bundle: Path | None
-    graphql_endpoint: str = "https://mc.shop.kaspi.kz/mc/facade/graphql?opName=getOrderDetails"
+    graphql_endpoints: tuple[str, ...]
+    user_agent: str
     kaspi_origin: str = "https://kaspi.kz"
     kaspi_referer: str = "https://kaspi.kz/"
     auth_url: str = "https://kaspi.kz/mc"
@@ -48,4 +64,11 @@ class Settings:
             log_file=Path(os.getenv("LOG_FILE", "logs/parser.log")),
             verify_ssl=_bool(os.getenv("VERIFY_SSL", "true")),
             ssl_ca_bundle=Path(value) if (value := os.getenv("SSL_CA_BUNDLE")) else None,
+            graphql_endpoints=_graphql_endpoints(),
+            user_agent=os.getenv(
+                "USER_AGENT",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/126.0.0.0 Safari/537.36",
+            ),
         )

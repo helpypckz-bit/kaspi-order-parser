@@ -78,3 +78,7 @@ The recommended header is `OrderCode`, but the reader is intentionally tolerant:
 ### SSL certificate troubleshooting on Windows
 
 If requests fail with `CERTIFICATE_VERIFY_FAILED`, update dependencies first so `requests` uses the bundled `certifi` CA store. In corporate networks with TLS inspection, export your company/root CA as a PEM file and set `SSL_CA_BUNDLE=C:\path\to\corporate-ca.pem` in `.env`. Keep `VERIFY_SSL=true` for production; `VERIFY_SSL=false` exists only as a last-resort local diagnostic switch.
+
+### HTTP 405 troubleshooting
+
+The client sends POST requests and now tries both the captured `GRAPHQL_ENDPOINT` and `GRAPHQL_FALLBACK_ENDPOINT`. If Kaspi changes the internal route again and you still receive HTTP 405, open Kaspi Merchant DevTools, copy the current `getOrderDetails` GraphQL request URL, and set `GRAPHQL_ENDPOINT` in `.env` to that exact URL.

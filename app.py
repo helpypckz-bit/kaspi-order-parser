@@ -8,7 +8,7 @@ import requests
 from auth import AuthService
 from config import Settings
 from excel import ExcelService
-from graphql_client import AuthenticationExpiredError, GraphQLClient
+from graphql_client import AuthenticationExpiredError, GraphQLClient, HTTPStatusError
 from logger import LoggerService
 from models import Order
 from parser import OrderParser
@@ -29,6 +29,16 @@ def process_order(
         return order
     except AuthenticationExpiredError:
         raise
+    except HTTPStatusError as exc:
+        response = exc.response
+        logger.error(
+            "Kaspi GraphQL rejected order %s with HTTP %s. Endpoint: %s. Response: %s",
+            order_code,
+            response.status_code,
+            response.url,
+            response.text[:500],
+        )
+        return None
     except requests.exceptions.SSLError as exc:
         logger.error(
             "SSL certificate verification failed for order %s: %s. "
@@ -54,7 +64,9 @@ def main() -> int:
     orders: list[Order] = []
     try:
         with ThreadPoolExecutor(max_workers=settings.max_workers) as executor:
-            futures = [executor.submit(process_order, code, client, parser, logger) for code in order_codes]
+            futures = [
+                executor.submit(process_order, code, client, parser, logger) for code in order_codes
+            ]
             for future in as_completed(futures):
                 if order := future.result():
                     orders.append(order)
