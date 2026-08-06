@@ -1,4 +1,4 @@
-query getOrderDetails($merchantUid: ID!, $orderCode: String!, $skipCustomerPhone: Boolean = false) {
+query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerPhone: Boolean = false) {
   merchant(id: $merchantUid) {
     orderDetail(code: $orderCode) {
       code

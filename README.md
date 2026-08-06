@@ -89,4 +89,4 @@ Use `https://kaspi.kz/mc/#/` and links like `https://kaspi.kz/mc/#/orders/102399
 
 ### GraphQL schema changes
 
-Kaspi can change internal GraphQL field names. The bundled query uses `merchant(id: ...)` and avoids invalid `OrderPlace` subfields that caused validation errors such as `Missing field argument 'id'` and `Unknown field argument 'uid'`. If Kaspi changes the schema again, copy the exact current `getOrderDetails` query from browser DevTools into `graphql/get_order_details.graphql`.
+Kaspi can change internal GraphQL field names. The bundled query uses `merchant(id: ...)` with a `String!` merchant variable and avoids invalid `OrderPlace` subfields that caused validation errors such as `Missing field argument 'id'` and `Unknown field argument 'uid'`. If Kaspi changes the schema again, copy the exact current `getOrderDetails` query from browser DevTools into `graphql/get_order_details.graphql`.
