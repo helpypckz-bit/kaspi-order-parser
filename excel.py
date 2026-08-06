@@ -60,6 +60,8 @@ class ExcelService:
                 return normalized_columns[supported_name]
         if len(frame.columns) == 1:
             only_column = frame.columns[0]
+            if self._looks_like_order_code(only_column):
+                return None
             self.logger.warning(
                 "OrderCode column was not found; using the only column '%s' as order codes",
                 only_column,
@@ -75,6 +77,12 @@ class ExcelService:
             frame.drop(index=frame.index[0], inplace=True)
         self.logger.warning("Using first column as order codes because no Excel header row was detected")
         return frame.columns[0]
+
+    def _looks_like_order_code(self, value: Any) -> bool:
+        text = str(value).strip().replace(" ", "")
+        if text.endswith(".0"):
+            text = text[:-2]
+        return text.isdigit() and len(text) >= 6
 
     def _extract_codes(self, values: pd.Series) -> list[str]:
         codes: list[str] = []

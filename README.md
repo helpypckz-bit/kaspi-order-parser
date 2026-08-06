@@ -74,3 +74,7 @@ Never commit `.env`, `storage_state.json`, logs, or generated output files. Auth
 ### Input troubleshooting
 
 The recommended header is `OrderCode`, but the reader is intentionally tolerant: it also accepts common variants such as `Order Code`, `order_code`, `code`, and one-column workbooks without a header. If multiple columns are present, rename the order-code column to `OrderCode` to avoid ambiguity.
+
+### SSL certificate troubleshooting on Windows
+
+If requests fail with `CERTIFICATE_VERIFY_FAILED`, update dependencies first so `requests` uses the bundled `certifi` CA store. In corporate networks with TLS inspection, export your company/root CA as a PEM file and set `SSL_CA_BUNDLE=C:\path\to\corporate-ca.pem` in `.env`. Keep `VERIFY_SSL=true` for production; `VERIFY_SSL=false` exists only as a last-resort local diagnostic switch.

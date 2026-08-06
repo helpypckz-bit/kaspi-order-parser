@@ -23,6 +23,8 @@ class Settings:
     storage_state_file: Path
     graphql_query_file: Path
     log_file: Path
+    verify_ssl: bool
+    ssl_ca_bundle: Path | None
     graphql_endpoint: str = "https://mc.shop.kaspi.kz/mc/facade/graphql?opName=getOrderDetails"
     kaspi_origin: str = "https://kaspi.kz"
     kaspi_referer: str = "https://kaspi.kz/"
@@ -44,4 +46,6 @@ class Settings:
                 os.getenv("GRAPHQL_QUERY_FILE", "graphql/get_order_details.graphql")
             ),
             log_file=Path(os.getenv("LOG_FILE", "logs/parser.log")),
+            verify_ssl=_bool(os.getenv("VERIFY_SSL", "true")),
+            ssl_ca_bundle=Path(value) if (value := os.getenv("SSL_CA_BUNDLE")) else None,
         )

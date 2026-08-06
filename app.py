@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import requests
+
 from auth import AuthService
 from config import Settings
 from excel import ExcelService
@@ -27,6 +29,14 @@ def process_order(
         return order
     except AuthenticationExpiredError:
         raise
+    except requests.exceptions.SSLError as exc:
+        logger.error(
+            "SSL certificate verification failed for order %s: %s. "
+            "Install/update certifi or set SSL_CA_BUNDLE in .env to your corporate/root CA bundle.",
+            order_code,
+            exc,
+        )
+        return None
     except Exception:
         logger.exception("Failed to process order %s", order_code)
         return None

@@ -7,6 +7,7 @@ from pathlib import Path
 from threading import local
 from typing import Any
 
+import certifi
 import requests
 from requests import Session
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -23,6 +24,7 @@ class GraphQLClient:
         self.settings = settings
         self.logger = logger
         self.query = self._load_query(settings.graphql_query_file)
+        self.verify = self._resolve_ssl_verify()
         self._thread_local = local()
 
     def get_order_details(self, order_code: str) -> dict[str, Any]:
@@ -66,6 +68,7 @@ class GraphQLClient:
                     self.settings.graphql_endpoint,
                     json=body,
                     timeout=self.settings.request_timeout,
+                    verify=self.verify,
                 )
                 self.logger.info("HTTP %s", response.status_code)
                 if response.status_code in {HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}:
@@ -76,6 +79,17 @@ class GraphQLClient:
                     self.logger.warning("GraphQL errors: %s", payload["errors"])
                 return payload
         raise RuntimeError("GraphQL request retry loop exited unexpectedly")
+
+    def _resolve_ssl_verify(self) -> bool | str:
+        if not self.settings.verify_ssl:
+            self.logger.warning(
+                "SSL verification is disabled. Use this only for local diagnostics; "
+                "prefer SSL_CA_BUNDLE for corporate certificates."
+            )
+            return False
+        if self.settings.ssl_ca_bundle is not None:
+            return str(self.settings.ssl_ca_bundle)
+        return certifi.where()
 
     def _load_cookies(self, session: Session, storage_state_file: Path) -> None:
         with storage_state_file.open(encoding="utf-8") as file:
