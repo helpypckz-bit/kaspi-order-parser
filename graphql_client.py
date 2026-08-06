@@ -24,6 +24,12 @@ class TransientHTTPError(RuntimeError):
     pass
 
 
+class GraphQLResponseError(RuntimeError):
+    def __init__(self, errors: list[dict[str, Any]]) -> None:
+        self.errors = errors
+        super().__init__("; ".join(str(error.get("message", error)) for error in errors))
+
+
 class HTTPStatusError(RuntimeError):
     def __init__(self, response: Response) -> None:
         self.response = response
@@ -112,10 +118,20 @@ class GraphQLClient:
                 self.logger.info("HTTP %s", response.status_code)
                 self._raise_for_unusable_response(response)
                 payload = response.json()
-                if payload.get("errors"):
-                    self.logger.warning("GraphQL errors: %s", payload["errors"])
+                errors = payload.get("errors") or []
+                if errors:
+                    self.logger.warning("GraphQL errors: %s", errors)
+                    if not self._has_order_detail(payload):
+                        raise GraphQLResponseError(errors)
                 return payload
         raise RuntimeError("GraphQL request retry loop exited unexpectedly")
+
+    def _has_order_detail(self, payload: dict[str, Any]) -> bool:
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            return False
+        merchant = data.get("merchant")
+        return isinstance(merchant, dict) and merchant.get("orderDetail") is not None
 
     def _raise_for_unusable_response(self, response: Response) -> None:
         if response.status_code in {HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}:

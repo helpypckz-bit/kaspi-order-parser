@@ -8,7 +8,12 @@ import requests
 from auth import AuthService
 from config import Settings
 from excel import ExcelService
-from graphql_client import AuthenticationExpiredError, GraphQLClient, HTTPStatusError
+from graphql_client import (
+    AuthenticationExpiredError,
+    GraphQLClient,
+    GraphQLResponseError,
+    HTTPStatusError,
+)
 from logger import LoggerService
 from models import Order
 from parser import OrderParser
@@ -29,6 +34,15 @@ def process_order(
         return order
     except AuthenticationExpiredError:
         raise
+    except GraphQLResponseError as exc:
+        logger.error(
+            "Kaspi GraphQL schema rejected order %s: %s. "
+            "Update graphql/get_order_details.graphql with the exact query "
+            "from DevTools if needed.",
+            order_code,
+            exc,
+        )
+        return None
     except HTTPStatusError as exc:
         response = exc.response
         logger.error(

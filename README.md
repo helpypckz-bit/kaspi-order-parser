@@ -86,3 +86,7 @@ The client sends POST requests and now tries both the captured `GRAPHQL_ENDPOINT
 ### Important: page URLs are not API URLs
 
 Use `https://kaspi.kz/mc/#/` and links like `https://kaspi.kz/mc/#/orders/1023997750` only in the browser. Do not put those URLs into `GRAPHQL_ENDPOINT`: URL fragments after `#` are client-side routes and cannot receive POST requests. The parser automatically falls back to the API host `https://mc.shop.kaspi.kz/mc/facade/graphql?opName=getOrderDetails` if a Kaspi page URL is accidentally configured as the GraphQL endpoint.
+
+### GraphQL schema changes
+
+Kaspi can change internal GraphQL field names. The bundled query uses `merchant(id: ...)` and avoids invalid `OrderPlace` subfields that caused validation errors such as `Missing field argument 'id'` and `Unknown field argument 'uid'`. If Kaspi changes the schema again, copy the exact current `getOrderDetails` query from browser DevTools into `graphql/get_order_details.graphql`.

@@ -1,5 +1,5 @@
-query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerPhone: Boolean = false) {
-  merchant(uid: $merchantUid) {
+query getOrderDetails($merchantUid: ID!, $orderCode: String!, $skipCustomerPhone: Boolean = false) {
+  merchant(id: $merchantUid) {
     orderDetail(code: $orderCode) {
       code
       creationTime
@@ -16,15 +16,10 @@ query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerP
         mode
       }
       destination {
-        city {
-          name
-        }
+        __typename
       }
       warehouse {
-        name
-        city {
-          name
-        }
+        __typename
       }
       entries {
         quantity
