@@ -1,0 +1,41 @@
+query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerPhone: Boolean = false) {
+  merchant(uid: $merchantUid) {
+    orderDetail(code: $orderCode) {
+      code
+      creationTime
+      status
+      state
+      commentText
+      totalPrice
+      customer {
+        firstName
+        lastName
+        phoneNumber @skip(if: $skipCustomerPhone)
+      }
+      delivery {
+        mode
+      }
+      destination {
+        city {
+          name
+        }
+      }
+      warehouse {
+        name
+        city {
+          name
+        }
+      }
+      entries {
+        quantity
+        totalPrice
+        product {
+          name
+        }
+        merchantProduct {
+          code
+        }
+      }
+    }
+  }
+}
