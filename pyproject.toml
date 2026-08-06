@@ -1,0 +1,19 @@
+[project]
+name = "kaspi-order-parser"
+version = "0.1.0"
+description = "Kaspi Merchant GraphQL order parser"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
