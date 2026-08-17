@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from http import HTTPStatus
 from pathlib import Path
 from threading import local
@@ -46,7 +47,7 @@ class GraphQLClient:
         self._thread_local = local()
 
     def get_order_details(self, order_code: str) -> dict[str, Any]:
-        return self._post({
+        payload = self._post({
             "operationName": "getOrderDetails",
             "query": self.query,
             "variables": {
@@ -55,6 +56,67 @@ class GraphQLClient:
                 "skipCustomerPhone": False,
             },
         })
+        warehouse_type = self._warehouse_type(payload)
+        if warehouse_type is not None:
+            places_payload = self._post({
+                "operationName": "getOrderDetails",
+                "query": self._places_query(warehouse_type),
+                "variables": {
+                    "merchantUid": self.settings.merchant_uid,
+                    "orderCode": str(order_code),
+                },
+            })
+            self._merge_warehouse(payload, places_payload)
+        return payload
+
+    def _warehouse_type(self, payload: dict[str, Any]) -> str | None:
+        data = payload.get("data")
+        merchant = data.get("merchant") if isinstance(data, dict) else None
+        detail = merchant.get("orderDetail") if isinstance(merchant, dict) else None
+        warehouse = detail.get("warehouse") if isinstance(detail, dict) else None
+        type_name = warehouse.get("__typename") if isinstance(warehouse, dict) else None
+        if isinstance(type_name, str) and re.fullmatch(r"[_A-Za-z][_0-9A-Za-z]*", type_name):
+            return type_name
+        return None
+
+    def _places_query(self, warehouse_type: str) -> str:
+        return f"""
+query getOrderDetails($merchantUid: String!, $orderCode: String!) {{
+  merchant(id: $merchantUid) {{
+    orderDetail(code: $orderCode) {{
+      warehouse {{
+        ... on {warehouse_type} {{
+          name
+          city {{
+            name
+          }}
+        }}
+      }}
+    }}
+  }}
+}}
+""".strip()
+
+    def _merge_warehouse(
+        self,
+        payload: dict[str, Any],
+        places_payload: dict[str, Any],
+    ) -> None:
+        target_data = payload.get("data")
+        source_data = places_payload.get("data")
+        target_merchant = target_data.get("merchant") if isinstance(target_data, dict) else None
+        source_merchant = source_data.get("merchant") if isinstance(source_data, dict) else None
+        target_detail = (
+            target_merchant.get("orderDetail") if isinstance(target_merchant, dict) else None
+        )
+        source_detail = (
+            source_merchant.get("orderDetail") if isinstance(source_merchant, dict) else None
+        )
+        source_warehouse = (
+            source_detail.get("warehouse") if isinstance(source_detail, dict) else None
+        )
+        if isinstance(target_detail, dict) and isinstance(source_warehouse, dict):
+            target_detail["warehouse"] = source_warehouse
 
     def _session(self) -> Session:
         session = getattr(self._thread_local, "session", None)
