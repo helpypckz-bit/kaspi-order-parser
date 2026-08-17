@@ -65,7 +65,15 @@ The parser reads order codes, executes GraphQL requests concurrently, parses JSO
 
 ## Output Columns
 
-`OrderCode`, `CreationTime`, `Status`, `State`, `CustomerFirstName`, `CustomerLastName`, `Phone`, `Comment`, `City`, `Warehouse`, `WarehouseCity`, `DeliveryMode`, `TotalPrice`, `ProductCount`, `Products`.
+The fixed columns are `OrderCode`, `CreationDate`, `CreationTime`, `IssueDate`,
+`CourierHandoverDate`, `Status`, `State`, `CustomerFirstName`, `CustomerLastName`, `Phone`,
+`Comment`, `City`, `Warehouse`, `WarehouseCity`, `DeliveryMode`, `TotalPrice`,
+`DeliverySubsidyCost`, `DeliveryCost`, and `ProductCount`.
+
+Products are exported into separate numbered columns: `ProductName1`, `ProductsArticul1`,
+`ProductPrice1`, then `ProductName2`, `ProductsArticul2`, `ProductPrice2`, and so on.
+`ProductCount` contains the sum of product quantities in the order, rather than the number of
+distinct product lines.
 
 ## Security Notes
 
