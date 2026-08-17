@@ -1,92 +1,279 @@
-# Kaspi Merchant GraphQL Order Parser
+# Парсер заказов Kaspi Merchant через GraphQL
 
-Production-ready Python application for exporting Kaspi Merchant orders through the same internal GraphQL endpoint used by the Merchant SPA. Playwright is used only to authenticate and save browser cookies; order extraction is performed with JSON GraphQL requests, not HTML scraping.
+Python-приложение для выгрузки заказов из кабинета продавца Kaspi Merchant через внутренний GraphQL API, который использует веб-интерфейс Kaspi. Playwright применяется только для ручной авторизации и сохранения браузерной сессии. Сами заказы загружаются JSON-запросами GraphQL, без HTML-парсинга и XPath.
 
-## Features
+## Возможности
 
-- Manual one-time Playwright authentication with persisted `storage_state.json`.
-- Threaded GraphQL order retrieval with up to five workers by default.
-- Retry support with exponential backoff for transient HTTP/network failures.
-- Typed dataclass models and isolated services for auth, GraphQL, parsing, Excel, and logging.
-- Excel input (`orders.xlsx`) and Excel output (`result.xlsx`).
-- Structured file and console logging.
+- однократная ручная авторизация через Playwright с сохранением сессии в `storage_state.json`;
+- параллельная загрузка заказов, по умолчанию до пяти запросов одновременно;
+- повторные попытки с экспоненциальной задержкой при временных сетевых и HTTP-ошибках;
+- чтение номеров заказов из `orders.xlsx`;
+- сохранение результата в `result.xlsx`;
+- отдельные колонки для даты и времени создания заказа;
+- выгрузка города доставки и города склада;
+- выгрузка дат выдачи и передачи заказа курьеру;
+- выгрузка стоимости доставки для продавца и клиента;
+- распределение каждого товара по отдельным колонкам;
+- журналирование в консоль и файл.
 
-## Setup
+## Требования
+
+- Python 3.12 или новее;
+- доступ к интернету;
+- действующая учётная запись продавца Kaspi;
+- Microsoft Excel или другая программа, которая открывает файлы `.xlsx`.
+
+## Установка в Windows PowerShell
+
+Откройте PowerShell в папке проекта и выполните:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+playwright install chromium
+Copy-Item .env.example .env
+```
+
+Если PowerShell запрещает активацию виртуального окружения, выполните для текущего окна:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+## Установка в Linux или macOS
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 playwright install chromium
 cp .env.example .env
 ```
 
-Edit `.env` and set your merchant UID and file paths if needed.
+После установки откройте `.env` и при необходимости измените идентификатор магазина и пути к файлам.
 
-## Configuration
+## Настройка `.env`
 
-| Variable | Default | Description |
+| Переменная | Значение по умолчанию | Назначение |
 | --- | --- | --- |
-| `MERCHANT_UID` | `Applecity` | Kaspi merchant UID passed to GraphQL. |
-| `INPUT_FILE` | `orders.xlsx` | Excel file with an `OrderCode` column. |
-| `OUTPUT_FILE` | `result.xlsx` | Generated Excel export. |
-| `HEADLESS` | `true` | Reserved for browser automation settings. Login is always visible. |
-| `MAX_WORKERS` | `5` | Concurrent request workers. |
-| `REQUEST_TIMEOUT` | `30` | Request timeout in seconds. |
-| `RETRY_COUNT` | `3` | Configured retry count. |
-| `STORAGE_STATE_FILE` | `storage_state.json` | Playwright cookie/session state. |
-| `GRAPHQL_QUERY_FILE` | `graphql/get_order_details.graphql` | GraphQL query file. |
-| `LOG_FILE` | `logs/parser.log` | Application log file. |
+| `MERCHANT_UID` | `Applecity` | Идентификатор магазина Kaspi, передаваемый в GraphQL. |
+| `INPUT_FILE` | `orders.xlsx` | Входной Excel-файл с номерами заказов. |
+| `OUTPUT_FILE` | `result.xlsx` | Итоговый Excel-файл. |
+| `HEADLESS` | `true` | Зарезервированная настройка браузера; окно авторизации всегда отображается. |
+| `MAX_WORKERS` | `5` | Максимальное количество одновременно обрабатываемых заказов. |
+| `REQUEST_TIMEOUT` | `30` | Тайм-аут одного HTTP-запроса в секундах. |
+| `RETRY_COUNT` | `3` | Количество попыток при временной ошибке. |
+| `STORAGE_STATE_FILE` | `storage_state.json` | Файл cookies и состояния браузерной сессии. |
+| `GRAPHQL_QUERY_FILE` | `graphql/get_order_details.graphql` | Файл GraphQL-запроса заказа. |
+| `LOG_FILE` | `logs/parser.log` | Файл журнала работы. |
+| `VERIFY_SSL` | `true` | Проверять SSL-сертификаты HTTPS-соединений. |
+| `SSL_CA_BUNDLE` | не задано | Путь к корпоративному корневому сертификату в формате PEM. |
+| `GRAPHQL_ENDPOINT` | адрес Kaspi GraphQL | Основной адрес GraphQL API. |
+| `GRAPHQL_FALLBACK_ENDPOINT` | резервный адрес Kaspi GraphQL | Резервный адрес GraphQL API. |
+| `USER_AGENT` | Chrome для Windows | Значение HTTP-заголовка `User-Agent`. |
 
-## Authentication
+## Авторизация
 
-```bash
+Перед первой выгрузкой выполните:
+
+```powershell
 python auth.py
 ```
 
-A Chromium window opens at `https://kaspi.kz/mc`. Complete login manually, then return to the terminal and press Enter. The app saves cookies to `storage_state.json`. Passwords, cookies, logs, and generated results are ignored by Git.
+Откроется окно Chromium со страницей `https://kaspi.kz/mc`. Выполните вход вручную, дождитесь открытия кабинета продавца, вернитесь в PowerShell и нажмите Enter. Приложение сохранит cookies в `storage_state.json`.
 
-## Input
+Повторная авторизация нужна, если:
 
-Create `orders.xlsx` with a single required column:
+- файл `storage_state.json` отсутствует;
+- Kaspi завершил сессию;
+- приложение получает HTTP 401 или 403;
+- необходимо войти под другой учётной записью.
+
+Для повторного входа удалите старый `storage_state.json` и снова выполните `python auth.py`.
+
+## Подготовка входного Excel-файла
+
+Создайте `orders.xlsx` с колонкой `OrderCode`:
 
 | OrderCode |
 | --- |
 | 1022135385 |
 | 1022135386 |
 
-## Run Parser
+Парсер также распознаёт варианты `Order Code`, `order_code`, `code`, `номер заказа` и одноколоночные файлы без заголовка. Если в файле несколько колонок, рекомендуется использовать точное название `OrderCode`.
 
-```bash
+## Запуск
+
+Убедитесь, что виртуальное окружение активировано, затем выполните:
+
+```powershell
 python parser.py
 ```
 
-The parser reads order codes, executes GraphQL requests concurrently, parses JSON, logs failures, continues processing remaining orders, and writes `result.xlsx`.
+Приложение:
 
-## Output Columns
+1. прочитает номера заказов из входного Excel-файла;
+2. проверит наличие сохранённой сессии;
+3. параллельно запросит сведения о заказах;
+4. продолжит обработку остальных заказов, если отдельный заказ завершился ошибкой;
+5. сохранит результат в `result.xlsx`;
+6. запишет подробный журнал в `logs/parser.log`.
 
-`OrderCode`, `CreationTime`, `Status`, `State`, `CustomerFirstName`, `CustomerLastName`, `Phone`, `Comment`, `City`, `Warehouse`, `WarehouseCity`, `DeliveryMode`, `TotalPrice`, `ProductCount`, `Products`.
+## Колонки результата
 
-## Security Notes
+### Основные колонки
 
-Never commit `.env`, `storage_state.json`, logs, or generated output files. Authentication cookies are loaded from Playwright storage state and attached to `requests` sessions.
+| Колонка | Содержимое |
+| --- | --- |
+| `OrderCode` | Номер заказа. |
+| `CreationDate` | Дата создания заказа в формате `ДД.ММ.ГГГГ`. |
+| `CreationTime` | Время создания заказа в формате `ЧЧ:ММ:СС`. |
+| `IssueDate` | Фактическая дата выдачи заказа. |
+| `CourierHandoverDate` | Фактическая дата передачи заказа курьеру. |
+| `Status` | Статус заказа. |
+| `State` | Состояние заказа. |
+| `CustomerFirstName` | Имя покупателя. |
+| `CustomerLastName` | Фамилия покупателя. |
+| `Phone` | Телефон покупателя. |
+| `Comment` | Комментарий к заказу. |
+| `City` | Город доставки. |
+| `Warehouse` | Название склада или пункта отправления. |
+| `WarehouseCity` | Город склада или пункта отправления. |
+| `DeliveryMode` | Способ доставки. |
+| `TotalPrice` | Общая сумма заказа. |
+| `DeliverySubsidyCost` | Стоимость доставки для продавца. |
+| `DeliveryCost` | Стоимость доставки для клиента. |
+| `ProductCount` | Общее количество единиц товаров во всех позициях заказа. |
 
-### Input troubleshooting
+Дата и время переводятся в часовой пояс `Asia/Almaty`.
 
-The recommended header is `OrderCode`, but the reader is intentionally tolerant: it also accepts common variants such as `Order Code`, `order_code`, `code`, and one-column workbooks without a header. If multiple columns are present, rename the order-code column to `OrderCode` to avoid ambiguity.
+### Колонки товаров
 
-### SSL certificate troubleshooting on Windows
+Каждая товарная позиция сохраняется в отдельную группу колонок:
 
-If requests fail with `CERTIFICATE_VERIFY_FAILED`, update dependencies first so `requests` uses the bundled `certifi` CA store. In corporate networks with TLS inspection, export your company/root CA as a PEM file and set `SSL_CA_BUNDLE=C:\path\to\corporate-ca.pem` in `.env`. Keep `VERIFY_SSL=true` for production; `VERIFY_SSL=false` exists only as a last-resort local diagnostic switch.
+```text
+ProductName1       — название первого товара
+ProductsArticul1   — артикул первого товара
+ProductPrice1      — цена первой товарной позиции
 
-### HTTP 405 troubleshooting
+ProductName2       — название второго товара
+ProductsArticul2   — артикул второго товара
+ProductPrice2      — цена второй товарной позиции
+```
 
-The client sends POST requests and now tries both the captured `GRAPHQL_ENDPOINT` and `GRAPHQL_FALLBACK_ENDPOINT`. If Kaspi changes the internal route again and you still receive HTTP 405, open Kaspi Merchant DevTools, copy the current `getOrderDetails` GraphQL request URL, and set `GRAPHQL_ENDPOINT` in `.env` to that exact URL.
+Если в заказе десять разных товарных позиций, будут созданы группы колонок от `ProductName1` до `ProductName10`. `ProductCount` содержит сумму `quantity` всех позиций, а не количество групп колонок.
 
-### Important: page URLs are not API URLs
+## Журнал работы
 
-Use `https://kaspi.kz/mc/#/` and links like `https://kaspi.kz/mc/#/orders/1023997750` only in the browser. Do not put those URLs into `GRAPHQL_ENDPOINT`: URL fragments after `#` are client-side routes and cannot receive POST requests. The parser automatically falls back to the API host `https://mc.shop.kaspi.kz/mc/facade/graphql?opName=getOrderDetails` if a Kaspi page URL is accidentally configured as the GraphQL endpoint.
+Основной журнал сохраняется в:
 
-### GraphQL schema changes
+```text
+logs/parser.log
+```
 
-Kaspi can change internal GraphQL field names. The bundled query uses `merchant(id: ...)` with a `String!` merchant variable and avoids invalid `OrderPlace` subfields that caused validation errors such as `Missing field argument 'id'` and `Unknown field argument 'uid'`. If Kaspi changes the schema again, copy the exact current `getOrderDetails` query from browser DevTools into `graphql/get_order_details.graphql`.
+При обращении за помощью приложите последние строки этого файла, но не отправляйте `.env` и `storage_state.json`.
+
+## Решение распространённых проблем
+
+### Не найден входной файл
+
+Проверьте:
+
+- существует ли `orders.xlsx`;
+- совпадает ли его имя со значением `INPUT_FILE` в `.env`;
+- запущен ли PowerShell из папки проекта;
+- не был ли файл перемещён или переименован.
+
+### Не найдена колонка с номером заказа
+
+Используйте заголовок `OrderCode`. Для файла с несколькими колонками это обязательный и наиболее надёжный вариант.
+
+### Истекла авторизация
+
+Удалите старую сессию и выполните вход заново:
+
+```powershell
+Remove-Item storage_state.json -Force -ErrorAction SilentlyContinue
+python auth.py
+```
+
+### Ошибка `CERTIFICATE_VERIFY_FAILED`
+
+Сначала обновите зависимости:
+
+```powershell
+python -m pip install --upgrade requests certifi
+```
+
+В корпоративной сети с проверкой TLS экспортируйте корневой сертификат организации в PEM-файл и укажите в `.env`:
+
+```dotenv
+SSL_CA_BUNDLE=C:\path\to\corporate-ca.pem
+VERIFY_SSL=true
+```
+
+`VERIFY_SSL=false` следует использовать только для временной локальной диагностики. Отключение проверки сертификата снижает безопасность соединения.
+
+### Ошибка HTTP 405
+
+Клиент выполняет POST-запрос сначала к `GRAPHQL_ENDPOINT`, затем к `GRAPHQL_FALLBACK_ENDPOINT`. Если оба адреса возвращают HTTP 405:
+
+1. откройте кабинет продавца Kaspi;
+2. откройте инструменты разработчика браузера;
+3. найдите сетевой GraphQL-запрос `getOrderDetails`;
+4. скопируйте его фактический URL;
+5. укажите URL в `GRAPHQL_ENDPOINT` файла `.env`.
+
+### URL страницы — не URL API
+
+Адреса вида:
+
+```text
+https://kaspi.kz/mc/#/
+https://kaspi.kz/mc/#/orders/1023997750
+```
+
+предназначены только для браузера. Их нельзя указывать в `GRAPHQL_ENDPOINT`, потому что часть после `#` является клиентским маршрутом страницы и не передаётся серверу. Если такой адрес указан случайно, приложение заменит его стандартным адресом GraphQL API.
+
+### Ошибка GraphQL schema validation
+
+Kaspi может изменять внутреннюю GraphQL-схему. Текущий запрос использует:
+
+- `merchant(id: $merchantUid)`;
+- переменную магазина типа `String!`;
+- конкретные типы мест заказа `Postomat`, `OrderAddress` и `Point`;
+- поля города внутри соответствующих inline fragments.
+
+Если Kaspi снова изменит схему, скопируйте актуальный запрос `getOrderDetails` из DevTools браузера в `graphql/get_order_details.graphql` и проверьте обработку ответа в `parser.py`.
+
+## Безопасность
+
+Никогда не публикуйте и не добавляйте в Git:
+
+- `.env`;
+- `storage_state.json`;
+- содержимое `logs/`;
+- `result.xlsx` с данными покупателей;
+- другие выгрузки, содержащие имена, телефоны и сведения о заказах.
+
+`storage_state.json` содержит cookies авторизованной сессии Kaspi. Храните его как пароль и не передавайте другим людям.
+
+## Запуск тестов
+
+Для разработки установите дополнительные зависимости:
+
+```powershell
+pip install -r requirements-dev.txt
+```
+
+Запустите тесты и проверки:
+
+```powershell
+pytest -q
+ruff check .
+mypy .
+```
