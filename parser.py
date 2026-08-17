@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from models import Order, Product
 from utils import deep_get, safe_float, safe_int
-from datetime import datetime
-from zoneinfo import ZoneInfo
+
 
 class OrderParser:
     def parse(self, payload: dict[str, Any], fallback_order_code: str) -> Order:
@@ -15,15 +16,18 @@ class OrderParser:
     
         products = [self._parse_product(entry) for entry in detail.get("entries") or []]
     
-        # Преобразование времени из UTC в Asia/Almaty
-        creation_time = str(detail.get("creationTime") or "")
-        if creation_time:
-            dt = datetime.fromisoformat(creation_time.replace("Z", "+00:00"))
-            creation_time = dt.astimezone(ZoneInfo("Asia/Almaty")).strftime("%d.%m.%Y %H:%M:%S")
+        creation_date, creation_time = self._format_datetime(detail.get("creationTime"))
+        issue_date, _ = self._format_datetime(deep_get(detail, "delivery.actualDeliveryDate", ""))
+        courier_handover_date, _ = self._format_datetime(
+            self._order_step_actual_time(detail, "TRANSMISSION")
+        )
     
         return Order(
             order_code=str(detail.get("code") or fallback_order_code),
+            creation_date=creation_date,
             creation_time=creation_time,
+            issue_date=issue_date,
+            courier_handover_date=courier_handover_date,
             status=str(detail.get("status") or ""),
             state=str(detail.get("state") or ""),
             customer_first_name=str(deep_get(detail, "customer.firstName", "")),
@@ -35,8 +39,27 @@ class OrderParser:
             warehouse_city=str(deep_get(detail, "warehouse.city.name", "")),
             delivery_mode=str(deep_get(detail, "delivery.mode", "")),
             total_price=safe_float(detail.get("totalPrice")),
+            delivery_subsidy_cost=safe_float(detail.get("deliverySubsidyCost")),
+            delivery_cost=safe_float(detail.get("deliveryCost")),
             products=products,
         )
+
+    def _format_datetime(self, value: Any) -> tuple[str, str]:
+        if not value:
+            return "", ""
+        try:
+            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return str(value), ""
+        local_dt = dt.astimezone(ZoneInfo("Asia/Almaty"))
+        return local_dt.strftime("%d.%m.%Y"), local_dt.strftime("%H:%M:%S")
+
+    def _order_step_actual_time(self, detail: dict[str, Any], step_name: str) -> Any:
+        for order_step in detail.get("orderSteps") or []:
+            if order_step.get("step") == step_name:
+                return order_step.get("actualTime")
+        return None
+
     def _parse_product(self, entry: dict[str, Any]) -> Product:
         return Product(
             name=str(deep_get(entry, "product.name", "")),
@@ -50,5 +73,3 @@ if __name__ == "__main__":
     from app import main
 
     raise SystemExit(main())
-
-
