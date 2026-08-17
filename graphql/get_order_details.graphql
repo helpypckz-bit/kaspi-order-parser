@@ -16,13 +16,20 @@ query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerP
         mode
       }
       destination {
-        city {
-          name
+        __typename
+        ... on Postomat {
+          city {
+            name
+          }
         }
       }
       warehouse {
-        city {
+        __typename
+        ... on Warehouse {
           name
+          city {
+            name
+          }
         }
       }
       entries {
