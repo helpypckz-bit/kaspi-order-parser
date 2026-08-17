@@ -7,6 +7,8 @@ query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerP
       state
       commentText
       totalPrice
+      deliverySubsidyCost
+      deliveryCost
       customer {
         firstName
         lastName
@@ -14,17 +16,48 @@ query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerP
       }
       delivery {
         mode
+        actualDeliveryDate
       }
       destination {
-        __typename
         ... on Postomat {
+          city {
+            name
+          }
+        }
+        ... on OrderAddress {
+          city {
+            name
+          }
+        }
+        ... on Point {
           city {
             name
           }
         }
       }
       warehouse {
-        __typename
+        ... on Postomat {
+          city {
+            name
+          }
+        }
+        ... on OrderAddress {
+          city {
+            name
+          }
+        }
+        ... on Point {
+          name
+          city {
+            name
+          }
+        }
+      }
+      orderSteps {
+        ... on SimpleOrderStep {
+          step
+          actualTime
+        }
       }
       entries {
         quantity
