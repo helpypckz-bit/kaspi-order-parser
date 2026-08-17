@@ -17,9 +17,20 @@ query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerP
       }
       destination {
         __typename
+        ... on Postomat {
+          city {
+            name
+          }
+        }
       }
       warehouse {
         __typename
+        ... on Warehouse {
+          name
+          city {
+            name
+          }
+        }
       }
       entries {
         quantity
