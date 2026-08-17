@@ -16,10 +16,14 @@ query getOrderDetails($merchantUid: String!, $orderCode: String!, $skipCustomerP
         mode
       }
       destination {
-        __typename
+        city {
+          name
+        }
       }
       warehouse {
-        __typename
+        city {
+          name
+        }
       }
       entries {
         quantity
